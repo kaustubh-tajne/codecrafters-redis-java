@@ -187,6 +187,42 @@ public class ClientHandler implements Runnable {
                     yield "-ERR wrong type of value for 'rpush' command\r\n";
                 }
             }
+            case "LPUSH" -> {
+                if (tokens.length < 3) {
+                    log.log(Level.SEVERE, "Wrong number of arguments for 'LPUSH' command");
+                    yield "-ERR wrong number of arguments for 'lpush' command\r\n";
+                }
+                String key = tokens[1];
+                int length = tokens.length;
+                List<String> list;
+                CacheEntry cacheEntryObj = storage.get(key);
+                if (cacheEntryObj == null || cacheEntryObj.isExpired()) {
+                    list = new ArrayList<>();
+                    for (int i = 2; i < length; i++) {
+                        if (tokens[i] == null || tokens[i].isEmpty()) {
+                            log.log(Level.SEVERE, "Null value in arguments for 'LPUSH' command");
+                            yield "-ERR null value in arguments for 'lpush' command\r\n";
+                        }
+                        list.addFirst(tokens[i]);
+                    }
+                    storage.put(key, new CacheEntry(list, -1));
+                    yield ":" + list.size() + "\r\n";
+                } else if (cacheEntryObj.isList()) {
+                    list = cacheEntryObj.list;
+                    for (int i = 2; i < length; i++) {
+                        if (tokens[i] == null || tokens[i].isEmpty()) {
+                            log.log(Level.SEVERE, "Null value in arguments for 'LPUSH' command");
+                            yield "-ERR null value in arguments for 'lpush' command\r\n";
+                        }
+                        list.addFirst(tokens[i]);
+                    }
+                    yield ":" + list.size() + "\r\n";
+                }
+                else {
+                    log.log(Level.SEVERE, "Wrong type of value for 'LPUSH' command");
+                    yield "-ERR wrong type of value for 'lpush' command\r\n";
+                }
+            }
             case "LRANGE" -> {
                 if (tokens.length < 4) {
                     log.log(Level.SEVERE, "Wrong number of arguments for 'LRANGE' command");
