@@ -302,7 +302,9 @@ public class ClientHandler implements Runnable {
                             yield "$-1\r\n";
                         } else {
                             StringBuilder sb = new StringBuilder();
-                            sb.append("*").append(noEleToRemove).append("\r\n");
+                            if (noEleToRemove > 1) {
+                                sb.append("*").append(noEleToRemove).append("\r\n");
+                            }
                             for (int i = 0; i < noEleToRemove; i++) {
                                 String value = list.removeFirst();
                                 sb.append("$").append(value.length()).append("\r\n").append(value).append("\r\n");
