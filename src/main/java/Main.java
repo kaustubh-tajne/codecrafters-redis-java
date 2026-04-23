@@ -1,8 +1,8 @@
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.InputStreamReader;
+import java.io.*;
+import java.lang.reflect.Array;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.util.ArrayList;
 
 public class Main {
   public static void main(String[] args){
@@ -21,7 +21,9 @@ public class Main {
                 // Wait for connection from client.
               Socket clientSocket = serverSocket.accept();
 
-              new Thread(new ClientHandler(clientSocket)).start();
+              new Thread(
+                      new ClientHandler(clientSocket)
+              ).start();
             }
         } catch (IOException e) {
           System.out.println("IOException3: " + e.getMessage());
@@ -39,14 +41,18 @@ class ClientHandler implements Runnable {
 
   @Override
   public void run() {
-    try {
-      BufferedReader in = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
-      String line;
-      while ((line = in.readLine()) != null){
-        System.out.println(line);
-        if (line.trim().equalsIgnoreCase("PING")){
-          clientSocket.getOutputStream().write("+PONG\r\n".getBytes());
+
+    try (InputStream input = clientSocket.getInputStream();
+         OutputStream output = clientSocket.getOutputStream();
+    ) {
+      while (true) {
+        String[] tokens = parseRESP(input);
+        if (tokens.length == 0) {
+          break;
         }
+        String response = handleCommand(tokens);
+        output.write(response.getBytes());
+        output.flush();
       }
     } catch (IOException e) {
       System.out.println("IOException1: " + e.getMessage());
@@ -59,8 +65,51 @@ class ClientHandler implements Runnable {
         System.out.println("IOException2: " + e.getMessage());
       }
     }
+
   }
 
+  private String[] parseRESP(InputStream input) throws IOException {
+    BufferedReader reader = new BufferedReader(new InputStreamReader(input));
+    String line = reader.readLine();
+    if (line == null || line.isEmpty() || line.charAt(0) != '*') {
+      return new String[0];
+    }
+    int arrayLength = Integer.parseInt(line.substring(1));
+    String[] tokens = new String[arrayLength];
+    for (int i = 0; i < arrayLength; i++) {
+      String bulkLine = reader.readLine();
+      if (bulkLine == null || bulkLine.charAt(0) != '$') {
+        return new String[0];
+      }
+      int bulkLength = Integer.parseInt(bulkLine.substring(1));
+      StringBuilder sb = new StringBuilder();
+      for (int j = 0; j < bulkLength; j++) {
+        sb.append((char) reader.read());
+      }
+      reader.readLine(); // Consume the trailing \r\n
+      tokens[i] = sb.toString();
+    }
+    return tokens;
+  }
+
+  private String handleCommand(String[] tokens) {
+    if (tokens.length == 0) return "";
+
+    String command = tokens[0].toUpperCase();
+
+    return switch (command) {
+      case "PING" -> "+PONG\r\n";
+      case "ECHO" -> {
+        if (tokens.length < 2) {
+          yield "-ERR wrong number of arguments for 'echo' command\r\n";
+        }
+        String message = tokens[1];
+        yield "$" + message.length() + "\r\n" + message + "\r\n";
+      }
+      default -> "-ERR unknown command '" + tokens[0] + "'\r\n";
+    };
+
+  }
 
 
 }
