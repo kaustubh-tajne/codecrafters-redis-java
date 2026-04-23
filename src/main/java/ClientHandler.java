@@ -214,19 +214,16 @@ public class ClientHandler implements Runnable {
                     if (start >= listSize) {
                         yield "*0\r\n";
                     }
-                    if (stop >= listSize) {
-                        stop = listSize - 1;
-                        StringBuilder sb = new StringBuilder();
-                        sb.append("*").append(stop - start + 1).append("\r\n");
-                        for (int i = start; i <= stop; i++) {
-                            String value = list.get(i);
-                            sb.append("$").append(value.length()).append("\r\n").append(value).append("\r\n");
-                        }
-                        yield sb.toString();
-                    }
-                }
 
-                yield "*0\r\n";
+                    stop = stop >= listSize ? listSize - 1 : stop;
+                    StringBuilder sb = new StringBuilder();
+                    sb.append("*").append(stop - start + 1).append("\r\n");
+                    for (int i = start; i <= stop; i++) {
+                        String value = list.get(i);
+                        sb.append("$").append(value.length()).append("\r\n").append(value).append("\r\n");
+                    }
+                    yield sb.toString();
+                }
             }
             default -> "-ERR unknown command '" + tokens[0] + "'\r\n";
         };
