@@ -1,8 +1,13 @@
 import java.io.*;
 import java.net.Socket;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 public class ClientHandler implements Runnable {
     private final Socket clientSocket;
+    private static final ConcurrentHashMap<String, String> storage = new ConcurrentHashMap<>();
+    private static final Logger log = Logger.getLogger(ClientHandler.class.getName());
 
     public ClientHandler(Socket socket) {
         this.clientSocket = socket;
@@ -70,10 +75,35 @@ public class ClientHandler implements Runnable {
             case "PING" -> "+PONG\r\n";
             case "ECHO" -> {
                 if (tokens.length < 2) {
+                    log.log(Level.SEVERE, "Wrong number of arguments for 'echo' command");
                     yield "-ERR wrong number of arguments for 'echo' command\r\n";
                 }
                 String message = tokens[1];
                 yield "$" + message.length() + "\r\n" + message + "\r\n";
+            }
+            case "SET" -> {
+                if (tokens.length < 3) {
+                    log.log(Level.SEVERE, "Wrong number of arguments for 'echo' command");
+                    yield "-ERR wrong number of arguments for 'set' command\r\n";
+                }
+                String key = tokens[1];
+                String value = tokens[2];
+                log.info("Setting key '" + key + "' to value '" + value + "'");
+                storage.put(key, value);
+                yield "+OK\r\n";
+            }
+            case "GET" -> {
+                if (tokens.length < 2) {
+                    log.log(Level.SEVERE, "Wrong number of arguments for 'echo' command");
+                    yield "-ERR wrong number of arguments for 'get' command\r\n";
+                }
+                String key = tokens[1];
+                String value = storage.get(key);
+                if (value == null) {
+                    yield "$-1\r\n";
+                } else {
+                    yield "$" + value.length() + "\r\n" + value + "\r\n";
+                }
             }
             default -> "-ERR unknown command '" + tokens[0] + "'\r\n";
         };
