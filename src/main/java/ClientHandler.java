@@ -297,11 +297,17 @@ public class ClientHandler implements Runnable {
                 } else {
                     if (cacheEntryObj.isList()) {
                         List<String> list = cacheEntryObj.list;
+                        int noEleToRemove = tokens.length >= 3 ? Integer.parseInt(tokens[2]) : 1;
                         if (list.isEmpty()) {
                             yield "$-1\r\n";
                         } else {
-                            String value = list.remove(0);
-                            yield "$" + value.length() + "\r\n" + value + "\r\n";
+                            StringBuilder sb = new StringBuilder();
+                            sb.append("*").append(noEleToRemove).append("\r\n");
+                            for (int i = 0; i < noEleToRemove; i++) {
+                                String value = list.removeFirst();
+                                sb.append("$").append(value.length()).append("\r\n").append(value).append("\r\n");
+                            }
+                            yield sb.toString();
                         }
                     } else {
                         log.log(Level.SEVERE, "Wrong type of value for 'LPOP' command");
