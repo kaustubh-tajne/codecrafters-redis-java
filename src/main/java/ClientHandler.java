@@ -1,5 +1,7 @@
 import java.io.*;
 import java.net.Socket;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -11,15 +13,27 @@ public class ClientHandler implements Runnable {
 
     static class CacheEntry {
         String value;
+        List<String> list;
         long expiryTime;
 
         CacheEntry(String value, long expiryTime) {
             this.value = value;
+            this.list = null;
+            this.expiryTime = expiryTime;
+        }
+
+        CacheEntry(List<String> list, long expiryTime) {
+            this.value = null;
+            this.list = list;
             this.expiryTime = expiryTime;
         }
 
         boolean isExpired() {
             return expiryTime != -1 && System.currentTimeMillis() > expiryTime;
+        }
+
+        boolean isList() {
+            return list != null;
         }
     }
 
@@ -97,7 +111,7 @@ public class ClientHandler implements Runnable {
             }
             case "SET" -> {
                 if (tokens.length < 3) {
-                    log.log(Level.SEVERE, "Wrong number of arguments for 'echo' command");
+                    log.log(Level.SEVERE, "Wrong number of arguments for 'SET' command");
                     yield "-ERR wrong number of arguments for 'set' command\r\n";
                 } else if (tokens.length >= 5) {
                     String key = tokens[1];
@@ -123,7 +137,7 @@ public class ClientHandler implements Runnable {
             }
             case "GET" -> {
                 if (tokens.length < 2) {
-                    log.log(Level.SEVERE, "Wrong number of arguments for 'echo' command");
+                    log.log(Level.SEVERE, "Wrong number of arguments for 'GET' command");
                     yield "-ERR wrong number of arguments for 'get' command\r\n";
                 }
                 String key = tokens[1];
@@ -138,7 +152,28 @@ public class ClientHandler implements Runnable {
                 }
             }
             case "RPUSH" -> {
-                yield ":1\r\n";
+                if (tokens.length < 3) {
+                    log.log(Level.SEVERE, "Wrong number of arguments for 'RPUSH' command");
+                    yield "-ERR wrong number of arguments for 'rpush' command\r\n";
+                }
+                String key = tokens[1];
+                String value = tokens[2];
+                List<String> list;
+                CacheEntry cacheEntryObj = storage.get(key);
+                if (cacheEntryObj == null || cacheEntryObj.isExpired()) {
+                    list = new ArrayList<>();
+                    list.add(value);
+                    storage.put(key, new CacheEntry(list, -1));
+                    yield ":1\r\n";
+                } else if (cacheEntryObj.isList()) {
+                    list = cacheEntryObj.list;
+                    list.add(value);
+                    yield ":" + list.size() + "\r\n";
+                }
+                else {
+                    log.log(Level.SEVERE, "Wrong type of value for 'RPUSH' command");
+                    yield "-ERR wrong type of value for 'rpush' command\r\n";
+                }
             }
             default -> "-ERR unknown command '" + tokens[0] + "'\r\n";
         };
