@@ -284,6 +284,31 @@ public class ClientHandler implements Runnable {
                     }
                 }
             }
+            case "LPOP" -> {
+                if (tokens.length < 2) {
+                    log.log(Level.SEVERE, "Wrong number of arguments for 'LLEN' command");
+                    yield "-ERR wrong number of arguments for 'llen' command\r\n";
+                }
+                String key = tokens[1];
+                CacheEntry cacheEntryObj = storage.get(key);
+                if (cacheEntryObj == null || cacheEntryObj.isExpired()) {
+                    storage.remove(key);
+                    yield "$-1\r\n";
+                } else {
+                    if (cacheEntryObj.isList()) {
+                        List<String> list = cacheEntryObj.list;
+                        if (list.isEmpty()) {
+                            yield "$-1\r\n";
+                        } else {
+                            String value = list.remove(0);
+                            yield "$" + value.length() + "\r\n" + value + "\r\n";
+                        }
+                    } else {
+                        log.log(Level.SEVERE, "Wrong type of value for 'LPOP' command");
+                        yield "-ERR wrong type of value for 'lpop' command\r\n";
+                    }
+                }
+            }
             default -> "-ERR unknown command '" + tokens[0] + "'\r\n";
         };
 
