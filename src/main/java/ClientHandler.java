@@ -157,17 +157,29 @@ public class ClientHandler implements Runnable {
                     yield "-ERR wrong number of arguments for 'rpush' command\r\n";
                 }
                 String key = tokens[1];
-                String value = tokens[2];
+                int length = tokens.length;
                 List<String> list;
                 CacheEntry cacheEntryObj = storage.get(key);
                 if (cacheEntryObj == null || cacheEntryObj.isExpired()) {
                     list = new ArrayList<>();
-                    list.add(value);
+                    for (int i = 2; i < length; i++) {
+                        if (tokens[i] == null || tokens[i].isEmpty()) {
+                            log.log(Level.SEVERE, "Null value in arguments for 'RPUSH' command");
+                            yield "-ERR null value in arguments for 'rpush' command\r\n";
+                        }
+                        list.add(tokens[i]);
+                    }
                     storage.put(key, new CacheEntry(list, -1));
-                    yield ":1\r\n";
+                    yield ":" + list.size() + "\r\n";
                 } else if (cacheEntryObj.isList()) {
                     list = cacheEntryObj.list;
-                    list.add(value);
+                    for (int i = 2; i < length; i++) {
+                        if (tokens[i] == null || tokens[i].isEmpty()) {
+                            log.log(Level.SEVERE, "Null value in arguments for 'RPUSH' command");
+                            yield "-ERR null value in arguments for 'rpush' command\r\n";
+                        }
+                        list.add(tokens[i]);
+                    }
                     yield ":" + list.size() + "\r\n";
                 }
                 else {
