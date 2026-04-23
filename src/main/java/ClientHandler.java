@@ -217,6 +217,10 @@ public class ClientHandler implements Runnable {
                     if (start >= listSize) {
                         yield "*0\r\n";
                     }
+                    if (start < 0 || stop < 0) {
+                        log.log(Level.SEVERE, "Negative index out of range for 'LRANGE' command");
+                        yield "-ERR negative index out of range for 'lrange' command\r\n";
+                    }
 
                     stop = stop >= listSize ? listSize - 1 : stop;
                     StringBuilder sb = new StringBuilder();
