@@ -6,8 +6,22 @@ import java.util.logging.Logger;
 
 public class ClientHandler implements Runnable {
     private final Socket clientSocket;
-    private static final ConcurrentHashMap<String, String> storage = new ConcurrentHashMap<>();
+    private static final ConcurrentHashMap<String, CacheEntry> storage = new ConcurrentHashMap<>();
     private static final Logger log = Logger.getLogger(ClientHandler.class.getName());
+
+    static class CacheEntry {
+        String value;
+        long expiryTime;
+
+        CacheEntry(String value, long expiryTime) {
+            this.value = value;
+            this.expiryTime = expiryTime;
+        }
+
+        boolean isExpired() {
+            return expiryTime != -1 && System.currentTimeMillis() > expiryTime;
+        }
+    }
 
     public ClientHandler(Socket socket) {
         this.clientSocket = socket;
@@ -85,11 +99,26 @@ public class ClientHandler implements Runnable {
                 if (tokens.length < 3) {
                     log.log(Level.SEVERE, "Wrong number of arguments for 'echo' command");
                     yield "-ERR wrong number of arguments for 'set' command\r\n";
+                } else if (tokens.length >= 5) {
+                    String key = tokens[1];
+                    String value = tokens[2];
+                    String timeFormat = tokens[3];
+                    long time = Long.parseLong(tokens[4]);
+                    if (timeFormat.equalsIgnoreCase("PX")) {
+                        long expiryTime = System.currentTimeMillis() + time;
+                        storage.put(key, new CacheEntry(value, expiryTime));
+                    } else if (timeFormat.equalsIgnoreCase("EX")) {
+                        long expiryTime = System.currentTimeMillis() + (time * 1000);
+                        storage.put(key, new CacheEntry(value, expiryTime));
+                    } else {
+                        log.log(Level.SEVERE, "Unknown time format for 'set' command");
+                        yield "-ERR unknown time format for 'set' command\r\n";
+                    }
+                } else {
+                    String key = tokens[1];
+                    String value = tokens[2];
+                    storage.put(key, new CacheEntry(value, -1));
                 }
-                String key = tokens[1];
-                String value = tokens[2];
-                log.info("Setting key '" + key + "' to value '" + value + "'");
-                storage.put(key, value);
                 yield "+OK\r\n";
             }
             case "GET" -> {
@@ -98,10 +127,13 @@ public class ClientHandler implements Runnable {
                     yield "-ERR wrong number of arguments for 'get' command\r\n";
                 }
                 String key = tokens[1];
-                String value = storage.get(key);
-                if (value == null) {
+                CacheEntry cacheEntryObj = storage.get(key);
+                if (cacheEntryObj == null || cacheEntryObj.isExpired()) {
+                    storage.remove(key);
                     yield "$-1\r\n";
-                } else {
+                }
+                else {
+                    String value = cacheEntryObj.value;
                     yield "$" + value.length() + "\r\n" + value + "\r\n";
                 }
             }
