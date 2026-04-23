@@ -196,10 +196,6 @@ public class ClientHandler implements Runnable {
                 int start = Integer.parseInt(tokens[2]);
                 int stop = Integer.parseInt(tokens[3]);
 
-                if (start > stop) {
-                    yield "*0\r\n";
-                }
-
                 CacheEntry cacheEntryObj = storage.get(key);
                 if (cacheEntryObj == null || cacheEntryObj.isExpired()) {
                     storage.remove(key);
@@ -211,6 +207,12 @@ public class ClientHandler implements Runnable {
                     }
                     List<String> list = cacheEntryObj.list;
                     int listSize = list.size();
+
+                    stop = stop < 0 ? listSize + stop : stop;
+
+                    if (start > stop) {
+                        yield "*0\r\n";
+                    }
                     if (start >= listSize) {
                         yield "*0\r\n";
                     }
