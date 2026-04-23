@@ -137,6 +137,9 @@ public class ClientHandler implements Runnable {
                     yield "$" + value.length() + "\r\n" + value + "\r\n";
                 }
             }
+            case "RPUSH" -> {
+                yield "+:1\r\n";
+            }
             default -> "-ERR unknown command '" + tokens[0] + "'\r\n";
         };
 
