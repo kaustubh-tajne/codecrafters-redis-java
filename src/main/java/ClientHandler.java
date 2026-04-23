@@ -265,6 +265,25 @@ public class ClientHandler implements Runnable {
                     yield sb.toString();
                 }
             }
+            case "LLEN" -> {
+                if (tokens.length < 2) {
+                    log.log(Level.SEVERE, "Wrong number of arguments for 'LLEN' command");
+                    yield "-ERR wrong number of arguments for 'llen' command\r\n";
+                }
+                String key = tokens[1];
+                CacheEntry cacheEntryObj = storage.get(key);
+                if (cacheEntryObj == null || cacheEntryObj.isExpired()) {
+                    storage.remove(key);
+                    yield ":0\r\n";
+                } else {
+                    if (cacheEntryObj.isList()) {
+                        List<String> list = cacheEntryObj.list;
+                        yield ":" + list.size() + "\r\n";
+                    } else {
+                        yield ":0\r\n";
+                    }
+                }
+            }
             default -> "-ERR unknown command '" + tokens[0] + "'\r\n";
         };
 
