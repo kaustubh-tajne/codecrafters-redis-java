@@ -208,6 +208,7 @@ public class ClientHandler implements Runnable {
                     List<String> list = cacheEntryObj.list;
                     int listSize = list.size();
 
+                    start = start < 0 ? listSize + start : start;
                     stop = stop < 0 ? listSize + stop : stop;
 
                     if (start > stop) {
