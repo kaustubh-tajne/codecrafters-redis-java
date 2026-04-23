@@ -187,6 +187,47 @@ public class ClientHandler implements Runnable {
                     yield "-ERR wrong type of value for 'rpush' command\r\n";
                 }
             }
+            case "LRANGE" -> {
+                if (tokens.length < 4) {
+                    log.log(Level.SEVERE, "Wrong number of arguments for 'LRANGE' command");
+                    yield "-ERR wrong number of arguments for 'lrange' command\r\n";
+                }
+                String key = tokens[1];
+                int start = Integer.parseInt(tokens[2]);
+                int stop = Integer.parseInt(tokens[3]);
+
+                if (start > stop) {
+                    yield "*0\r\n";
+                }
+
+                CacheEntry cacheEntryObj = storage.get(key);
+                if (cacheEntryObj == null || cacheEntryObj.isExpired()) {
+                    storage.remove(key);
+                    yield "*0\r\n";
+                } else {
+                    if (!cacheEntryObj.isList()) {
+                        log.log(Level.SEVERE, "Wrong type of value for 'LRANGE' command");
+                        yield "-ERR wrong type of value for 'lrange' command\r\n";
+                    }
+                    List<String> list = cacheEntryObj.list;
+                    int listSize = list.size();
+                    if (start >= listSize) {
+                        yield "*0\r\n";
+                    }
+                    if (stop >= listSize) {
+                        stop = listSize - 1;
+                        StringBuilder sb = new StringBuilder();
+                        sb.append("*").append(stop - start + 1).append("\r\n");
+                        for (int i = start; i <= stop; i++) {
+                            String value = list.get(i);
+                            sb.append("$").append(value.length()).append("\r\n").append(value).append("\r\n");
+                        }
+                        yield sb.toString();
+                    }
+                }
+
+                yield "*0\r\n";
+            }
             default -> "-ERR unknown command '" + tokens[0] + "'\r\n";
         };
 
